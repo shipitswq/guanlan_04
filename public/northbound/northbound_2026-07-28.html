@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>北向资金日报 — 2026-07-28</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #f8fafc; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; }
+.container { max-width: 1000px; margin: 0 auto; }
+.header { background: linear-gradient(135deg, #1e3a5f, #2d6a9f); color: white; border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; }
+.header h1 { font-size: 24px; margin-bottom: 4px; }
+.header .date { font-size: 14px; opacity: 0.8; margin-bottom: 20px; }
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.summary-card { background: rgba(255,255,255,0.12); border-radius: 12px; padding: 16px; text-align: center; }
+.summary-card .label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+.summary-card .value { font-size: 26px; font-weight: 700; }
+.summary-card .unit { font-size: 12px; opacity: 0.7; }
+.summary-card.total .value { color: #22c55e; }
+.summary-card.hgt .value { color: #f97316; }
+.summary-card.sgt .value { color: #3b82f6; }
+.chart-box { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.chart-box h2 { font-size: 16px; margin-bottom: 12px; color: #475569; }
+#dayChart, #histChart { width: 100%; height: 360px; }
+.info { background: #f1f5f9; border-radius: 12px; padding: 16px; font-size: 13px; color: #64748b; line-height: 1.8; }
+.info strong { color: #334155; }
+.info .tag { display: inline-block; background: #22c55e; color: white; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-right: 4px; }
+.footer { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🧭 北向资金日报</h1>
+    <div class="date">数据来源: 同花顺 hsgtApi · 2026-07-28 · 采样 262 个时间点</div>
+    <div class="summary-grid">
+      <div class="summary-card total">
+        <div class="label">北向合计</div>
+        <div class="value">+5.66</div>
+        <div class="unit">亿元 <span class="tag">净流入</span></div>
+      </div>
+      <div class="summary-card hgt">
+        <div class="label">沪股通</div>
+        <div class="value">-9.28</div>
+        <div class="unit">亿元</div>
+      </div>
+      <div class="summary-card sgt">
+        <div class="label">深股通</div>
+        <div class="value">+14.94</div>
+        <div class="unit">亿元</div>
+      </div>
+      <div class="summary-card" style="background:rgba(255,255,255,0.08)">
+        <div class="label">点位</div>
+        <div class="value" style="font-size:18px;margin-top:6px;color:rgba(255,255,255,0.9)">262</div>
+        <div class="unit">分钟采样</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-box">
+    <h2>📈 当日北向资金分钟走势</h2>
+    <div id="dayChart"></div>
+  </div>
+
+  <div class="chart-box">
+    <h2>📊 近 1 个交易日历史走势</h2>
+    <div id="histChart"></div>
+  </div>
+
+  <div class="info">
+    <strong>数据说明：</strong><br>
+    • <strong>沪股通</strong> = 当日累计净买入（亿元）, 每分钟更新一次, 开盘从0开始<br>
+    • <strong>深股通</strong> = 累计持仓型指标, 取日内首尾差值作为当日净流入估算<br>
+    • <strong>北向合计</strong> = 沪股通当日净买入 + 深股通日内差值<br>
+    • 盘中数据实时刷新, 收盘后数据为当日最终值<br>
+    • 数据仅供研究参考, 不构成投资建议<br>
+    • 数据源: <code>https://data.hexin.cn/market/hsgtApi/method/dayChart/</code>
+  </div>
+
+  <div class="footer">
+    生成时间: 2026-07-28 22:53:46
+  </div>
+</div>
+
+<script>
+var dayChart = echarts.init(document.getElementById("dayChart"));
+var times = ["09:10", "09:11", "09:12", "09:13", "09:14", "09:15", "09:16", "09:17", "09:18", "09:19", "09:20", "09:21", "09:22", "09:23", "09:24", "09:25", "09:26", "09:27", "09:28", "09:29", "09:30", "09:31", "09:32", "09:33", "09:34", "09:35", "09:36", "09:37", "09:38", "09:39", "09:40", "09:41", "09:42", "09:43", "09:44", "09:45", "09:46", "09:47", "09:48", "09:49", "09:50", "09:51", "09:52", "09:53", "09:54", "09:55", "09:56", "09:57", "09:58", "09:59", "10:00", "10:01", "10:02", "10:03", "10:04", "10:05", "10:06", "10:07", "10:08", "10:09", "10:10", "10:11", "10:12", "10:13", "10:14", "10:15", "10:16", "10:17", "10:18", "10:19", "10:20", "10:21", "10:22", "10:23", "10:24", "10:25", "10:26", "10:27", "10:28", "10:29", "10:30", "10:31", "10:32", "10:33", "10:34", "10:35", "10:36", "10:37", "10:38", "10:39", "10:40", "10:41", "10:42", "10:43", "10:44", "10:45", "10:46", "10:47", "10:48", "10:49", "10:50", "10:51", "10:52", "10:53", "10:54", "10:55", "10:56", "10:57", "10:58", "10:59", "11:00", "11:01", "11:02", "11:03", "11:04", "11:05", "11:06", "11:07", "11:08", "11:09", "11:10", "11:11", "11:12", "11:13", "11:14", "11:15", "11:16", "11:17", "11:18", "11:19", "11:20", "11:21", "11:22", "11:23", "11:24", "11:25", "11:26", "11:27", "11:28", "11:29", "11:30", "13:00", "13:01", "13:02", "13:03", "13:04", "13:05", "13:06", "13:07", "13:08", "13:09", "13:10", "13:11", "13:12", "13:13", "13:14", "13:15", "13:16", "13:17", "13:18", "13:19", "13:20", "13:21", "13:22", "13:23", "13:24", "13:25", "13:26", "13:27", "13:28", "13:29", "13:30", "13:31", "13:32", "13:33", "13:34", "13:35", "13:36", "13:37", "13:38", "13:39", "13:40", "13:41", "13:42", "13:43", "13:44", "13:45", "13:46", "13:47", "13:48", "13:49", "13:50", "13:51", "13:52", "13:53", "13:54", "13:55", "13:56", "13:57", "13:58", "13:59", "14:00", "14:01", "14:02", "14:03", "14:04", "14:05", "14:06", "14:07", "14:08", "14:09", "14:10", "14:11", "14:12", "14:13", "14:14", "14:15", "14:16", "14:17", "14:18", "14:19", "14:20", "14:21", "14:22", "14:23", "14:24", "14:25", "14:26", "14:27", "14:28", "14:29", "14:30", "14:31", "14:32", "14:33", "14:34", "14:35", "14:36", "14:37", "14:38", "14:39", "14:40", "14:41", "14:42", "14:43", "14:44", "14:45", "14:46", "14:47", "14:48", "14:49", "14:50", "14:51", "14:52", "14:53", "14:54", "14:55", "14:56", "14:57", "14:58", "14:59", "15:00"];
+var hgtData = [0.0, 0.03, 0.04, 0.05, 0.06, 0.06, 0.12, 0.13, 0.14, 0.14, 0.16, 0.3, 0.32, 0.37, 0.43, 2.67, 1.44, 1.44, 1.44, 1.44, 1.45, 4.95, 5.02, 6.11, 4.53, 2.56, 3.27, 2.75, 2.72, 3.76, 3.41, 2.97, 1.41, 1.58, 2.25, 1.83, 1.15, 1.0, 2.3, 1.9, 1.8, -1.89, -2.78, -5.54, -6.77, -7.33, -8.93, -7.49, -7.34, -8.77, -9.6, -11.71, -10.63, -9.84, -9.54, -9.2, -12.2, -10.83, -11.51, -12.35, -12.28, -13.66, -14.27, -15.06, -16.28, -15.89, -15.75, -16.92, -16.79, -17.03, -17.27, -17.56, -19.07, -18.0, -19.59, -19.13, -19.27, -18.38, -18.05, -18.44, -18.81, -20.2, -20.13, -21.47, -21.63, -22.19, -22.6, -23.07, -22.61, -22.71, -22.3, -21.08, -20.68, -20.71, -20.71, -20.99, -21.06, -20.16, -19.76, -18.63, -18.82, -18.62, -18.95, -17.87, -17.59, -19.08, -19.02, -19.35, -19.46, -19.33, -18.62, -19.16, -19.1, -19.24, -18.77, -16.39, -13.32, -12.99, -17.85, -17.37, -17.75, -17.52, -17.96, -18.29, -18.64, -18.6, -17.78, -17.86, -17.55, -18.92, -19.35, -19.37, -18.08, -18.34, -18.14, -17.98, -17.94, -18.44, -18.44, -18.3, -20.63, -20.94, -20.16, -19.92, -18.14, -16.07, -15.24, -15.08, -15.63, -14.87, -14.34, -13.65, -13.19, -12.73, -10.52, -9.8, -10.32, -10.62, -9.71, -10.47, -9.7, -9.49, -8.69, -9.32, -9.56, -9.08, -7.53, -5.82, -6.14, -6.12, -5.72, -6.88, -6.71, -6.22, -6.32, -7.62, -7.32, -5.65, -5.71, -5.86, -6.69, -6.91, -7.27, -7.11, -7.34, -7.64, -9.32, -9.54, -9.78, -10.12, -9.68, -9.48, -8.27, -7.91, -7.72, -7.83, -7.8, -7.12, -7.65, -8.32, -8.11, -8.22, -8.75, -7.97, -7.96, -8.25, -11.01, -10.94, -10.82, -10.64, -10.16, -10.66, -10.49, -9.81, -8.82, -8.43, -9.02, -9.96, -10.47, -10.71, -10.63, -10.04, -9.6, -10.74, -10.89, -10.99, -10.66, -10.19, -9.95, -9.91, -10.14, -10.16, -9.67, -7.44, -7.16, -6.94, -7.34, -7.6, -7.94, -7.98, -8.89, -9.07, -9.65, -9.89, -10.07, -10.07, -9.88, -10.04, -9.85, -10.01, -10.43, -10.36, -7.84, -7.99, -8.51, -8.75, -9.35, -10.07, -10.87, -10.52, -10.03, -9.28];
+var sgtTimes = ["09:10", "09:11", "09:12", "09:13", "09:14", "09:15", "09:16", "09:17", "09:18", "09:19", "09:20", "09:21", "09:22", "09:23", "09:24", "09:25", "09:26", "09:27", "09:28", "09:29", "09:30", "09:31", "09:32", "09:33", "09:34", "09:35", "09:36", "09:37", "09:38", "09:39", "09:40", "09:41", "09:42", "09:43", "09:44"];
+var sgtData = [364.81, 365.5, 366.49, 367.37, 369.93, 370.65, 371.25, 371.33, 371.8, 373.36, 374.51, 375.36, 376.25, 377.17, 377.17, 378.8, 380.07, 380.54, 380.75, 382.13, 383.38, 384.0, 384.32, 384.65, 385.47, 387.19, 388.5, 390.17, 390.45, 388.25, 388.0, 387.9, 388.97, 401.15, 379.75];
+
+// 沪股通: 密集的分钟数据
+var hgtSeries = [];
+for (var i = 0; i < times.length; i++) {
+    if (hgtData[i] !== null) {
+        hgtSeries.push([times[i], hgtData[i]]);
+    }
+}
+
+// 深股通: 稀疏采样点
+var sgtSeries = [];
+for (var i = 0; i < sgtTimes.length; i++) {
+    sgtSeries.push([sgtTimes[i], sgtData[i]]);
+}
+
+dayChart.setOption({
+    tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+            var s = '<strong>' + params[0].axisValue + '</strong><br/>';
+            params.forEach(function(p) {
+                var val = p.data[1];
+                if (val !== undefined) {
+                    s += p.marker + ' ' + p.seriesName + ': ' + val.toFixed(2) + ' 亿<br/>';
+                }
+            });
+            return s;
+        }
+    },
+    legend: { data: ['沪股通(当日累计)', '深股通(累计持仓)'], top: 0 },
+    grid: { left: 60, right: 20, top: 40, bottom: 30 },
+    xAxis: {
+        type: 'category',
+        data: times,
+        axisLabel: { fontSize: 10, interval: 20 }
+    },
+    yAxis: [
+        {
+            type: 'value',
+            name: '沪股通净买入 (亿)',
+            splitLine: { lineStyle: { type: 'dashed', opacity: 0.3 } }
+        },
+        {
+            type: 'value',
+            name: '深股通累计 (亿)',
+            splitLine: { show: false }
+        }
+    ],
+    series: [
+        {
+            name: '沪股通(当日累计)',
+            type: 'line',
+            yAxisIndex: 0,
+            data: hgtSeries,
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { width: 2, color: '#f97316' },
+            areaStyle: { color: 'rgba(249, 115, 22, 0.1)' },
+            connectNulls: false
+        },
+        {
+            name: '深股通(累计持仓)',
+            type: 'line',
+            yAxisIndex: 1,
+            data: sgtSeries,
+            smooth: true,
+            symbol: 'circle',
+            symbolSize: 4,
+            lineStyle: { width: 1.5, color: '#3b82f6', type: 'dashed' },
+            connectNulls: false
+        }
+    ]
+});
+
+// 历史走势
+var histChart = echarts.init(document.getElementById("histChart"));
+var histDates = ["2026-07-28"];
+var histTotals = [5.66];
+
+histChart.setOption({
+    tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+            var p = params[0];
+            var val = p.value;
+            return '<strong>' + p.axisValue + '</strong><br/>' +
+                   (val !== null ? (val >= 0 ? '🟢' : '🔴') + ' 北向合计: ' + val.toFixed(2) + ' 亿' : '暂无数据');
+        }
+    },
+    grid: { left: 60, right: 20, top: 10, bottom: 40 },
+    xAxis: {
+        type: 'category',
+        data: histDates,
+        axisLabel: { fontSize: 10, rotate: 45, interval: Math.max(0, Math.floor(histDates.length / 15)) }
+    },
+    yAxis: {
+        type: 'value',
+        name: '北向合计 (亿元)',
+        splitLine: { lineStyle: { type: 'dashed', opacity: 0.3 } }
+    },
+    series: [{
+        type: 'bar',
+        data: histTotals.map(function(v) {
+            return {
+                value: v,
+                itemStyle: { color: v >= 0 ? '#22c55e' : '#ef4444' }
+            };
+        }),
+        barWidth: '60%'
+    }]
+});
+
+window.addEventListener('resize', function() {
+    dayChart.resize();
+    histChart.resize();
+});
+</script>
+</body>
+</html>

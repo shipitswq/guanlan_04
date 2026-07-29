@@ -1,0 +1,17 @@
+{
+  "date": "2026-07-28",
+  "upCount": 2603,
+  "downCount": 2769,
+  "limitUp": 68,
+  "limitDown": 50,
+  "northFlow": -111.6,
+  "shNorthFlow": 73.43,
+  "szNorthFlow": 66.63,
+  "shUp": 1067,
+  "shDown": 1208,
+  "shLimitUp": 75,
+  "szUp": 1332,
+  "szDown": 1499,
+  "szLimitUp": 91,
+  "updatedAt": "2026-07-28T18:20:00+08:00"
+}
