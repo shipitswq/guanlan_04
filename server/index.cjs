@@ -20,6 +20,13 @@ const PORT = process.env.PORT || 3003
 
 app.use(cors())
 
+// 生产模式：托管前端构建产物
+const DIST_DIR = path.resolve(__dirname, '..', 'dist')
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR))
+  console.log(`[观澜] 前端静态文件: ${DIST_DIR}`)
+}
+
 // ============ 股票池配置 ============
 
 const STOCK_POOL = [
@@ -1467,6 +1474,14 @@ function avg(arr) {
 
 function sum(arr) {
   return arr.reduce((a, b) => a + b, 0)
+}
+
+// SPA 兜底路由（生产模式，非 API 请求都返回 index.html）
+if (fs.existsSync(DIST_DIR)) {
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) return
+    res.sendFile(path.join(DIST_DIR, 'index.html'))
+  })
 }
 
 // ============ 启动 ============
