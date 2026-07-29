@@ -20,7 +20,7 @@ function readMarketBreadth() {
   }
 }
 
-/** 读取板块列表缓存（通达信行业板块实时数据） */
+/** 读取板块列表缓存 */
 function readSectors() {
   try {
     const file = path.join(DATA_DIR, 'sectors.json')
@@ -28,6 +28,18 @@ function readSectors() {
     return JSON.parse(fs.readFileSync(file, 'utf-8'))
   } catch {
     return null
+  }
+}
+
+/** 写入板块列表缓存（手动触发或定时任务） */
+function writeSectors(data) {
+  try {
+    const file = path.join(DATA_DIR, 'sectors.json')
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
+    return true
+  } catch (e) {
+    console.error('[缓存] 写入板块列表失败:', e.message)
+    return false
   }
 }
 
@@ -45,5 +57,6 @@ function readInstitutionalHoldings() {
 module.exports = {
   readMarketBreadth,
   readSectors,
+  writeSectors,
   readInstitutionalHoldings,
 }

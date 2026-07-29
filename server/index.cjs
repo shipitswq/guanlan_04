@@ -48,6 +48,11 @@ let stockSectorCache = null
 let stockSectorCacheTs = 0
 let sectorCacheBuildPromise = null
 let lastSectorCache = null // 板块树缓存，东财不可用时的降级数据
+// 启动时从磁盘缓存恢复（仅当格式正确时）
+try {
+  const cached = cache.readSectors()
+  if (cached?.sectors?.length >= 30 && cached.sectors[0].code) lastSectorCache = cached.sectors
+} catch (e) {}
 
 /** 构建全市场股票→板块映射（懒加载，首次调用时构建并缓存）*/
 async function getStockSectorMap() {
@@ -182,39 +187,51 @@ app.get('/api/sectors', async (req, res) => {
       })
 
       console.log(`[观澜] 板块列表: ${sectors.length}个行业 (东财实时)`)
+      // 缓存到磁盘，收盘后可继续查看
+      cache.writeSectors({ date: new Date().toISOString().slice(0, 10), sectors, updatedAt: new Date().toISOString() })
       return res.json(sectors)
     }
 
-    // 东财不可用 → 回退缓存（9个核心板块）
+    // 东财不可用 → 回退缓存
     console.warn('[观澜] 板块列表: 回退缓存数据')
     const cached = cache.readSectors()
-    if (!cached || !cached.sectors) {
+    if (!cached || !cached.sectors || cached.sectors.length === 0) {
       return res.status(503).json({ error: '板块数据源均不可用' })
     }
-    const fallback = cached.sectors.map((s) => {
-      const fundamental = scoring.scoreFundamental({ pe: s.pe, pb: s.pb, marketCap: s.marketCap }, null)
-      const capital = scoring.scoreCapital(
-        { turnover: s.turnover, turnoverRate: s.turnover / s.marketCap * 100 },
-        { mainInflow: 0 }, 0
-      )
-      const sentiment = scoring.scoreSentiment(
-        { turnoverRate: s.turnover / s.marketCap * 100, volumeRatio: 1, amplitude: s.amplitude || 2 }, null
-      )
-      const techScore = s.changePct > 2 ? 75 : s.changePct > 0 ? 55 : s.changePct > -2 ? 45 : 25
-      const technical = {
-        dimension: 'technical', score: techScore, rating: scoring.scoreToRating(techScore),
-        summary: s.changePct > 2 ? '技术面强势' : s.changePct > 0 ? '技术面中性偏强' : '技术面偏弱',
-        indicators: [],
+    const fallback = cached.sectors.filter(s => s.name && s.changePct != null).map((s) => {
+      try {
+        const mc = s.marketCap || s.totalMarketCap || 1
+        const fundamental = scoring.scoreFundamental({ pe: +(s.pe || 0), pb: +(s.pb || 0), marketCap: mc }, null)
+        const capital = scoring.scoreCapital(
+          { turnover: s.turnover || 0, turnoverRate: (s.turnover || 0) / mc * 100 },
+          { mainInflow: s.mainInflow || s.netInflow || 0 }, 0
+        )
+        const sentiment = scoring.scoreSentiment(
+          { turnoverRate: (s.turnover || 0) / mc * 100, volumeRatio: 1, amplitude: s.amplitude || 2 }, null
+        )
+        const chg = s.changePct || 0
+        const techScore = chg > 2 ? 75 : chg > 0 ? 55 : chg > -2 ? 45 : 25
+        const technical = {
+          dimension: 'technical', score: techScore, rating: scoring.scoreToRating(techScore),
+          summary: chg > 2 ? '技术面强势' : chg > 0 ? '技术面中性偏强' : '技术面偏弱',
+          indicators: [],
+        }
+        const analysis = [fundamental, capital, sentiment, technical]
+        const totalScore = scoring.calcTotalScore(analysis)
+        return {
+          id: s.code || s.id || '',
+          name: s.name, code: s.code || s.tdxCode || '',
+          changePct: +(+chg).toFixed(2), turnover: +(s.turnover || 0).toFixed(2),
+          leadingStock: '', stockCount: 0, netInflow: +(s.mainInflow || s.netInflow || 0).toFixed(2),
+          marketCap: +(mc).toFixed(2),
+          floatMarketCap: +(s.circulationMarketCap || s.floatMarketCap || 0).toFixed(2),
+          totalScore, rating: scoring.scoreToRating(totalScore), analysis, trend5d: [],
+        }
+      } catch (e) {
+        console.warn('[缓存] 跳过无效板块:', s.name, e.message)
+        return null
       }
-      const analysis = [fundamental, capital, sentiment, technical]
-      const totalScore = scoring.calcTotalScore(analysis)
-      return {
-        id: s.id, name: s.name, code: s.tdxCode,
-        changePct: +s.changePct.toFixed(2), turnover: +s.turnover.toFixed(2),
-        leadingStock: '', stockCount: 0, netInflow: 0,
-        totalScore, rating: scoring.scoreToRating(totalScore), analysis, trend5d: [],
-      }
-    })
+    }).filter(Boolean)
     res.json(fallback)
   } catch (err) {
     console.error('sectors error:', err.message)
@@ -418,7 +435,7 @@ app.get('/api/sectors/tree', async (req, res) => {
     }
     // 东财失败或返回太少 → 用内存中的上次成功结果
     if (!rawSectors || rawSectors.length < 30) {
-      if (lastSectorCache) {
+      if (lastSectorCache && lastSectorCache.length >= 30 && lastSectorCache[0].code) {
         rawSectors = lastSectorCache
       } else {
         // 兜底：从行业层级表拉 code+name（离线可用）
@@ -430,7 +447,11 @@ app.get('/api/sectors/tree', async (req, res) => {
       return res.json([])
     }
     // 缓存本次结果以备下次降级使用
-    if (rawSectors.length >= 30) lastSectorCache = rawSectors
+    if (rawSectors.length >= 30) {
+      lastSectorCache = rawSectors
+      // 同时写入磁盘缓存
+      cache.writeSectors({ date: new Date().toISOString().slice(0, 10), sectors: rawSectors, updatedAt: new Date().toISOString() })
+    }
 
     // 构建实时数据映射
     const sectorMap = {}
