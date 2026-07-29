@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/api/client'
-import type { SectorHeatmapResponse } from '@/api/client'
+import type { SectorHeatmapResponse, ApiSector } from '@/api/client'
 import * as echarts from 'echarts'
 import RatingBadge from '@/components/common/RatingBadge'
 import { DIMENSIONS } from '@/utils/config'
@@ -43,6 +43,8 @@ export default function SectorList() {
   const [hmError, setHmError] = useState('')
   const [hmHours, setHmHours] = useState(8)
   const [hmHighlight, setHmHighlight] = useState('')
+  // 板块列表实时数据（用于右侧表格，与板块列表同源）
+  const [hmSectors, setHmSectors] = useState<ApiSector[]>([])
 
   const loadTree = useCallback(async () => {
     setLoading(true)
@@ -64,8 +66,11 @@ export default function SectorList() {
   useEffect(() => {
     if (tab !== 'heatmap' || hmData) return
     setHmLoading(true)
-    api.getSectorHeatmap(hmHours, undefined, true)
-      .then(setHmData)
+    Promise.all([
+      api.getSectorHeatmap(hmHours, undefined, true),
+      api.getSectors().catch(() => []),
+    ])
+      .then(([hm, sectors]) => { setHmData(hm); setHmSectors(sectors) })
       .catch((e) => setHmError(e.message))
       .finally(() => setHmLoading(false))
   }, [tab])
@@ -73,8 +78,11 @@ export default function SectorList() {
   useEffect(() => {
     if (tab !== 'heatmap') return
     setHmLoading(true)
-    api.getSectorHeatmap(hmHours, undefined, true)
-      .then(setHmData)
+    Promise.all([
+      api.getSectorHeatmap(hmHours, undefined, true),
+      api.getSectors().catch(() => []),
+    ])
+      .then(([hm, sectors]) => { setHmData(hm); setHmSectors(sectors) })
       .catch((e) => setHmError(e.message))
       .finally(() => setHmLoading(false))
   }, [hmHours])
@@ -154,7 +162,7 @@ export default function SectorList() {
             tab === 'heatmap' ? 'text-primary-600 border-primary-600' : 'text-slate-500 border-transparent hover:text-slate-700'
           }`}
         >
-          资金曲线
+          主力加仓
         </button>
       </div>
 
@@ -326,7 +334,7 @@ export default function SectorList() {
 
           {hmLoading ? (
             <div className="flex items-center justify-center h-80">
-              <div className="text-slate-400 animate-pulse">加载资金曲线数据...</div>
+              <div className="text-slate-400 animate-pulse">加载主力加仓数据...</div>
             </div>
           ) : hmError ? (
             <div className="card p-6 text-center">
@@ -341,7 +349,52 @@ export default function SectorList() {
               <div className="text-slate-400 mb-3">暂无板块资金数据</div>
             </div>
           ) : (
-            <CurveChart data={hmData} highlight={hmHighlight} />
+            <div className="flex gap-4">
+              <div className="flex-1 min-w-0">
+                <CurveChart data={hmData} highlight={hmHighlight} corrections={hmSectors} />
+              </div>
+              <div className="w-80 shrink-0">
+                <div className="card p-3">
+                  <div className="text-xs font-medium text-slate-500 mb-2">板块排序</div>
+                  <div className="space-y-0.5 text-xs max-h-[640px] overflow-y-auto">
+                    {(() => {
+                      // 从板块列表实时数据（与板块列表同源）获取申万一级行业聚合值
+                      const rows = hmData.sectors.map(s => {
+                        // 先找同名板块（如 食品饮料→BK0438 食品饮料）
+                        let match = hmSectors.find(x => x.name === s.name)
+                        // 没找到则尝试包含匹配（如 银行→银行Ⅱ）
+                        if (!match) match = hmSectors.find(x => x.name.includes(s.name) || s.name.includes(x.name))
+                        const cum = match?.netInflow || 0
+                        const mc = match?.marketCap || 1
+                        const pct = mc > 0 ? +(cum / mc * 100).toFixed(3) : 0
+                        return { code: s.code, name: s.name, cum, pct }
+                      })
+                      // 按百分占比降序排列（如无有效百分比则按累计值降序）
+                      rows.sort((a, b) => b.pct !== a.pct ? b.pct - a.pct : b.cum - a.cum)
+                      return rows.map((r, i) => {
+                        const v = r.pct
+                        const raw = r.cum
+                        const pctStr = v > 0 ? `+${v.toFixed(2)}%` : `${v.toFixed(2)}%`
+                        const rawStr = Math.abs(raw) >= 1 ? `${raw.toFixed(1)}亿` : `${(raw * 10000).toFixed(0)}万`
+                        const color = i < 20 ? ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899','#fb7185','#fbbf24','#a3e635','#34d399','#2dd4bf','#38bdf8','#818cf8','#a78bfa','#e879f9','#f472b6'][i] : '#94a3b8'
+                        return (
+                          <div key={r.code} className={`flex items-center justify-between py-0.5 px-1 rounded hover:bg-slate-50 ${hmHighlight === r.code ? 'bg-blue-50' : ''}`}>
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                              <span className="truncate">{r.name}</span>
+                            </div>
+                            <div className={`font-mono shrink-0 ml-2 text-right ${v >= 0 ? 'text-up' : 'text-down'}`}>
+                              <span>{pctStr}</span>
+                              <span className="text-slate-400 ml-1">{rawStr}</span>
+                            </div>
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -350,9 +403,11 @@ export default function SectorList() {
 }
 
 /** 资金发散曲线图 */
-function CurveChart({ data, highlight = '' }: { data: SectorHeatmapResponse; highlight?: string }) {
-  const { timestamps, sectors, data: rows } = data
+function CurveChart({ data, highlight = '', corrections = [] }: { data: SectorHeatmapResponse; highlight?: string; corrections?: ApiSector[] }) {
+  const { timestamps = [], sectors = [], data: rows = [] } = data || {}
   const chartRef = useRef<HTMLDivElement>(null)
+
+  if (!timestamps.length || !sectors.length) return <div className="text-center py-8 text-sm text-slate-400">暂无数据</div>
 
   // UTC → 北京时间 (UTC+8)
   const toCST = (ts: string) => {
@@ -397,13 +452,26 @@ function CurveChart({ data, highlight = '' }: { data: SectorHeatmapResponse; hig
         values.push({ value: pct, raw: +cum.toFixed(2) })
       }
       const finalPct = mc && mc > 0 ? +(cum / mc * 100) : cum
+      // 用板块列表实时值修正最终累计值（同名匹配合并）
+      const corr = corrections.find(c => c.name === sector.name) || corrections.find(c => sector.name.includes(c.name) || c.name.includes(sector.name))
+      if (corr && corr.marketCap > 0) {
+        const corrCum = corr.netInflow || 0
+        const corrPct = +(corrCum / corr.marketCap * 100)
+        // 修正最后一个数据点
+        const lastVal = values[values.length - 1]
+        if (lastVal) {
+          lastVal.value = corrPct
+          lastVal.raw = corrCum
+        }
+        return { name: sector.name, code: sector.code, values, finalCum: corrPct }
+      }
       return { name: sector.name, code: sector.code, values, finalCum: finalPct }
     })
   }, [sectors, timestamps, rows, data])
 
   const topSeries = useMemo(() => {
-    // 显示所有板块曲线（不再截断到20个），按波动幅度降序排列
-    return [...seriesData].sort((a, b) => Math.abs(b.finalCum) - Math.abs(a.finalCum))
+    // 按实际值降序（与右侧板块排序一致）
+    return [...seriesData].sort((a, b) => b.finalCum - a.finalCum)
   }, [seriesData])
 
   const COLORS = [
@@ -414,31 +482,13 @@ function CurveChart({ data, highlight = '' }: { data: SectorHeatmapResponse; hig
   ]
 
   useEffect(() => {
-    if (!chartRef.current) return
+    if (!chartRef.current || !topSeries.length) return
     const chart = echarts.init(chartRef.current)
     const palette = COLORS
     const option = {
       color: palette,
-      tooltip: {
-        trigger: 'axis',
-        formatter: (params: any[]) => {
-          if (!params?.length) return ''
-          const time = toCST(params[0].axisValue)
-          let h = `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${time}</div>`
-          const sorted = [...params].sort((a: any, b: any) => (b.data.value ?? b.data) - (a.data.value ?? a.data))
-          for (const p of sorted) {
-            const v = p.data.value ?? p.data
-            const raw = p.data.raw
-            const c = v >= 0 ? '#ef4444' : '#22c55e'
-            const rawStr = raw != null
-              ? (Math.abs(raw) >= 1 ? `${raw.toFixed(1)}亿` : `${(raw * 10000).toFixed(0)}万`)
-              : ''
-            h += `<div style="display:flex;justify-content:space-between;gap:12px"><span>${p.marker} ${p.seriesName}</span><span style="color:${c};font-weight:600;font-family:monospace">${v > 0 ? '+' : ''}${v.toFixed(3)}% ${rawStr}</span></div>`
-          }
-          return h
-        },
-      },
-      grid: { left: 50, right: 80, top: 8, bottom: 24 },
+      tooltip: { show: false },
+      grid: { left: 50, right: 120, top: 8, bottom: 24 },
       xAxis: { type: 'category', data: xLabels, boundaryGap: false,
         axisLine: { lineStyle: { color: '#e2e8f0' } },
         axisLabel: { fontSize: 11, color: '#94a3b8' },
@@ -467,7 +517,7 @@ function CurveChart({ data, highlight = '' }: { data: SectorHeatmapResponse; hig
             emphasis: isDim ? { disabled: true } : { lineStyle: { width: 3 } },
             z: isHighlight ? 10 : 0,
             endLabel: {
-              show: isHighlight || !highlight,
+              show: true,
               formatter: () => s.name,
               fontSize: 10,
               fontWeight: isHighlight ? 700 : 500,
@@ -493,10 +543,6 @@ function CurveChart({ data, highlight = '' }: { data: SectorHeatmapResponse; hig
   return (
     <div className="card p-1">
       <div ref={chartRef} style={{ width: '100%', height: 680 }} />
-      <div className="px-4 pb-3 text-xs text-slate-400 flex items-center gap-4">
-        <span>💡 所有曲线从同一起点发散，上=资金流入，下=资金流出</span>
-        <span className="ml-auto">共 {topSeries.length} 个板块</span>
-      </div>
     </div>
   )
 }
