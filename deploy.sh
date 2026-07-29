@@ -14,7 +14,7 @@ set -e
 
 # ---------- 配置 ----------
 APP_NAME="guanlan"
-APP_DIR="/workspace/${APP_NAME}"
+APP_DIR="/workspace/guanlan_04"
 GIT_REPO="https://github.com/shipitswq/guanlan_04.git"
 BRANCH="main"
 PORT="${PORT:-3005}"
@@ -132,22 +132,31 @@ else
   cd "${APP_DIR}"
 fi
 
-# ---------- 4. 安装依赖 ----------
+# ---------- 4. 安装系统构建工具（编译 better-sqlite3 等原生模块） ----------
+if command -v apt &>/dev/null; then
+  info "安装系统构建工具..."
+  apt-get update -qq && apt-get install -y -qq python3 make g++ 2>/dev/null || true
+elif command -v yum &>/dev/null; then
+  info "安装系统构建工具..."
+  yum install -y python3 make gcc-c++ 2>/dev/null || true
+fi
+
+# ---------- 5. 安装依赖 ----------
 info "安装项目依赖..."
-npm install 2>/dev/null || npm install --production
+npm install --legacy-peer-deps 2>/dev/null || npm install 2>/dev/null || npm install --production --legacy-peer-deps
 
 if [ -f "server/package.json" ]; then
   cd server && npm install 2>/dev/null || true && cd ..
 fi
 
-# ---------- 5. 构建前端 ----------
+# ---------- 6. 构建前端 ----------
 info "构建前端..."
 npx vite build
 
-# ---------- 6. 准备数据目录 ----------
+# ---------- 7. 准备数据目录 ----------
 mkdir -p server/data
 
-# ---------- 7. 启动服务 ----------
+# ---------- 8. 启动服务 ----------
 info "启动服务..."
 pm2 delete "${APP_NAME}" 2>/dev/null || true
 PORT="${PORT}" pm2 start server/index.cjs --name "${APP_NAME}"

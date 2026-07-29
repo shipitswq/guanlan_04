@@ -241,4 +241,8 @@ export const api = {
     latest: { date: string; m1: number; m2: number; m1YoY: number | null; m2YoY: number | null; spread: number | null };
     series: Array<{ date: string; m1Growth: number | null; m2Growth: number | null; spread: number | null }>
   }>('/m1m2'),
+  captureEtfShare: () => request<{ok: boolean; count: number}>('/etf-share/snapshot', { method: 'POST' }),
+  getEtfShareHistory: () => request<{
+    etfs: Array<{ name: string; code: string; data: Array<{ date: string; shares: number; nav: number; change: number }> }>
+  }>('/etf-share/history'),
 }

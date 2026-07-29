@@ -1340,6 +1340,84 @@ app.get('/api/m1m2', (req, res) => {
   } catch (err) { console.error('m1m2 error:', err.message); res.status(500).json({ error: err.message }) }
 })
 
+// ---- ETF 份额监控 ----
+const ETF_SHARE_CACHE_FILE = path.resolve(__dirname, 'data', 'etf-share-history.json')
+const ETF_WATCH_LIST = [
+  { code: '510300', name: '沪深300ETF', market: 'sh' },
+  { code: '510050', name: '上证50ETF', market: 'sh' },
+  { code: '512100', name: '中证1000ETF', market: 'sh' },
+]
+
+function readEtfShareCache() {
+  try { if (!fs.existsSync(ETF_SHARE_CACHE_FILE)) return []; return JSON.parse(fs.readFileSync(ETF_SHARE_CACHE_FILE, 'utf-8')) }
+  catch { return [] }
+}
+
+// 获取当前ETF份额并缓存
+app.post('/api/etf-share/snapshot', async (req, res) => {
+  try {
+    const https = require('https')
+    const now = new Date()
+    const today = now.toISOString().slice(0, 10)
+    const results = []
+
+    for (const etf of ETF_WATCH_LIST) {
+      await new Promise((resolve) => {
+        https.get(`https://qt.gtimg.cn/q=${etf.market}${etf.code}`, { headers: { 'Referer': 'https://finance.qq.com' } }, (resp) => {
+          let body = ''
+          resp.on('data', c => body += c)
+          resp.on('end', () => {
+            const m = body.match(/"([^"]+)"/)
+            if (m) {
+              const f = m[1].split('~')
+              const price = parseFloat(f[3]) || 0
+              const totalMV = parseFloat(f[72]) || 0  // 总市值(元)
+              const sharesYi = totalMV > 0 && price > 0 ? +(totalMV / 1e8 / price).toFixed(2) : 0  // 亿份
+              results.push({ code: etf.code, name: etf.name, date: today, nav: price, shares: sharesYi, totalMV: +(totalMV / 1e8).toFixed(2) })
+            }
+            resolve()
+          })
+        }).on('error', () => resolve())
+      })
+    }
+
+    // 追加到缓存
+    let cache = readEtfShareCache()
+    for (const r of results) {
+      const existing = cache.findIndex(x => x.code === r.code && x.date === r.date)
+      if (existing >= 0) cache[existing] = r
+      else cache.push(r)
+    }
+    // 只保留最近60天
+    cache = cache.sort((a, b) => a.date.localeCompare(b.date)).slice(-180)
+    fs.writeFileSync(ETF_SHARE_CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8')
+
+    res.json({ ok: true, count: results.length, results })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// 获取ETF份额历史
+app.get('/api/etf-share/history', (req, res) => {
+  try {
+    const cache = readEtfShareCache()
+    // 按ETF代码分组
+    const grouped = {}
+    for (const item of cache) {
+      if (!grouped[item.code]) grouped[item.code] = { name: item.name, code: item.code, data: [] }
+      grouped[item.code].data.push({ date: item.date, shares: item.shares, nav: item.nav })
+    }
+    // 计算每日份额变化（净申购）
+    for (const [code, g] of Object.entries(grouped)) {
+      g.data.sort((a, b) => a.date.localeCompare(b.date))
+      g.data = g.data.map((d, i) => ({
+        ...d,
+        change: i > 0 ? +(d.shares - g.data[i - 1].shares).toFixed(2) : 0,
+      }))
+    }
+    res.json({ etfs: Object.values(grouped) })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 app.get('/api/liquidity', async (req, res) => {
   try {
     // 1. 从 sectors 获取全市场量比和换手率
@@ -1478,7 +1556,7 @@ function sum(arr) {
 
 // SPA 兜底路由（生产模式，非 API 请求都返回 index.html）
 if (fs.existsSync(DIST_DIR)) {
-  app.get('*', (req, res) => {
+  app.get('/{*splat}', (req, res) => {
     if (req.path.startsWith('/api/')) return
     res.sendFile(path.join(DIST_DIR, 'index.html'))
   })
