@@ -41,7 +41,7 @@ if [ -d ".git" ]; then
 
   # 构建前端
   info "构建前端..."
-  npm run build
+  npx vite build
 
   # 安装后端依赖（server 目录下如有 package.json 则安装）
   if [ -f "server/package.json" ]; then
