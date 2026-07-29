@@ -200,7 +200,7 @@ export default function Dashboard() {
           </div>
           <div className="space-y-2">
             {displayEvents.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">暂无匹配的风险事件</p>
+              <p className="text-sm text-slate-400 text-center py-6">暂无风险事件数据</p>
             ) : displayEvents.map((evt) => {
               const days = daysFromToday(evt.date)
               const levelConfig = RISK_LEVEL_MAP[evt.riskLevel]

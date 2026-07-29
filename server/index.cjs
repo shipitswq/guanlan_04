@@ -726,14 +726,30 @@ app.get('/api/stocks', async (req, res) => {
     const BATCH = 500
     const allQuotes = []
     const inflowMap = {}
+    let inflowFailed = false
     for (let i = 0; i < codes.length; i += BATCH) {
       const batch = codes.slice(i, i + BATCH)
       const [quotes, inflows] = await Promise.all([
         tct.getStockQuotesBatch(batch),
-        em.getMainInflowBatch(batch).catch(() => ({})),
+        em.getMainInflowBatch(batch).catch(() => { inflowFailed = true; return {} }),
       ])
       allQuotes.push(...quotes)
       Object.assign(inflowMap, inflows)
+    }
+
+    // 缓存个股资金流数据（盘中成功时写入，收盘后降级使用）
+    const cacheNow = new Date().toISOString()
+    if (!inflowFailed && Object.keys(inflowMap).length > 0) {
+      cache.writeStockInflows({ updatedAt: cacheNow, inflows: inflowMap })
+    } else {
+      // 东财失败 → 用缓存兜底
+      const cached = cache.readStockInflows()
+      if (cached?.inflows && Object.keys(cached.inflows).length > 0) {
+        Object.assign(inflowMap, cached.inflows)
+        console.log(`[个股] 资金流降级缓存: ${Object.keys(cached.inflows).length} 只`)
+      } else {
+        console.log('[个股] 无资金流缓存数据，显示待同步')
+      }
     }
 
     const stocks = allQuotes.map((q) => {
@@ -758,7 +774,7 @@ app.get('/api/stocks', async (req, res) => {
         floatMarketCap: +q.floatMarketCap.toFixed(2),
         pe: +q.pe.toFixed(1),
         pb: +q.pb.toFixed(2),
-        netInflow: +(inflowMap[q.code] || 0).toFixed(2),
+        netInflow: inflowMap[q.code] != null ? +(inflowMap[q.code]).toFixed(2) : null,
         totalScore,
         rating,
       }
@@ -904,6 +920,7 @@ app.get('/api/stocks/:code', async (req, res) => {
           .slice(-60)
       })(),
       netInflow: baseNetInflow,
+      riskEvents: await riskEvents.getRiskEventsByStock(poolItem?.name || quote.name).catch(() => []),
       valuationHistory,
       institutional: stockHolding || null,
     })

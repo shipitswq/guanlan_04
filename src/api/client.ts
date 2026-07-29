@@ -139,7 +139,17 @@ export interface ApiStockDetail extends ApiStockListItem {
   analysis: ApiDimensionAnalysis[]
   klines: ApiKLine[]
   capitalFlow: ApiCapitalFlowItem[]
+  riskEvents: ApiRiskEventItem[]
   valuationHistory: ApiValuationHistory
+}
+
+export interface ApiRiskEventItem {
+  date: string
+  type: string
+  title: string
+  description: string
+  riskLevel: string
+  impact: string
 }
 
 export interface SectorInflowSummary {

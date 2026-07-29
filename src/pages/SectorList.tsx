@@ -195,7 +195,7 @@ export default function SectorList() {
                     {DIMENSIONS.map((d) => (
                       <th key={d.key} className="px-3 py-3 text-center font-medium whitespace-nowrap">{d.shortLabel}</th>
                     ))}
-                    <th className="px-4 py-3 text-center font-medium">综合</th>
+                    <th className="px-4 py-3 text-center font-medium">综合得分</th>
                     <th className="px-4 py-3 text-center font-medium">评级</th>
                   </tr>
                 </thead>
@@ -258,7 +258,7 @@ export default function SectorList() {
                         {/* 主力净流入 */}
                         {node.mainInflow != null ? (
                           <td className={`px-4 py-3 text-right font-mono ${node.mainInflow > 0 ? 'text-up' : node.mainInflow < 0 ? 'text-down' : 'text-slate-500'}`}>
-                            {node.mainInflow > 0 ? '+' : ''}{node.mainInflow.toFixed(1)}
+                            {node.mainInflow > 0 ? '+' : ''}{node.mainInflow.toFixed(1)}亿
                           </td>
                         ) : (
                           <td className="px-4 py-3 text-right font-mono text-slate-300">--</td>

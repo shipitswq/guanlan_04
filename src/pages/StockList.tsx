@@ -85,7 +85,7 @@ export default function StockList() {
               <SortHeader sort="pe" label="PE" className="text-right" />
               <th className="px-4 py-3 text-right font-medium">市值</th>
               <SortHeader sort="netInflow" label="主力净流入" className="text-right" />
-              <SortHeader sort="mainEffort" label="主力努力" className="text-right" />
+              <SortHeader sort="mainEffort" label="主力加仓" className="text-right" />
               <SortHeader sort="rating" label="评分" className="text-center" />
                   <th className="px-4 py-3 text-center font-medium">评级</th>
                 </>
@@ -114,10 +114,10 @@ export default function StockList() {
                     <td className="px-4 py-3 text-right font-mono text-slate-600">{stock.pe > 0 ? stock.pe.toFixed(1) : '--'}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-600">{fmtBig(stock.marketCap)}</td>
                     <td className={`px-4 py-3 text-right font-mono ${stock.netInflow > 0 ? 'text-up' : stock.netInflow < 0 ? 'text-down' : 'text-slate-500'}`}>
-                      {stock.netInflow > 0 ? '+' : ''}{fmtBig(stock.netInflow)}
+                      {stock.netInflow != null ? `${stock.netInflow > 0 ? '+' : ''}${fmtBig(stock.netInflow)}` : '待同步'}
                     </td>
                     <td className={`px-4 py-3 text-right font-mono text-xs ${stock.netInflow > 0 ? 'text-up' : stock.netInflow < 0 ? 'text-down' : 'text-slate-500'}`}>
-                      {stock.floatMarketCap > 0 && stock.netInflow !== 0
+                      {stock.floatMarketCap > 0 && stock.netInflow != null && stock.netInflow !== 0
                         ? `${(stock.netInflow / stock.floatMarketCap * 100).toFixed(3)}%`
                         : '--'}
                     </td>

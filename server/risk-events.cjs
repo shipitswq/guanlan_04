@@ -56,14 +56,16 @@ async function getUpcomingLockupEvents(forwardDays = 90) {
 
   return rows.map((row, i) => {
     const ratio = row.FREE_RATIO || 0
-    const sharesYi = (row.FREE_SHARES_NUM || 0) / 1e8
+    const sharesWan = row.FREE_SHARES || 0  // 万股
+    const sharesYi = sharesWan / 1e4  // 转为亿股
+    const sharesDesc = sharesYi >= 1 ? `${sharesYi.toFixed(1)}亿股` : `${sharesWan.toFixed(1)}万股`
     const riskLevel = ratio > 10 ? 'high' : ratio > 3 ? 'medium' : 'low'
     return {
       id: `lockup_${i}`,
       date: String(row.FREE_DATE || '').slice(0, 10),
       type: 'lockup_expire',
       title: `${row.SECURITY_NAME_ABBR || '未知'}限售股解禁`,
-      description: `${row.LIMITED_STOCK_TYPE || '限售股'}，解禁${sharesYi.toFixed(1)}亿股，占总股本${ratio.toFixed(1)}%`,
+      description: `${row.LIMITED_STOCK_TYPE || '限售股'}，解禁${sharesDesc}，占总股本${ratio.toFixed(1)}%`,
       riskLevel,
       scope: 'stock',
       targets: [row.SECURITY_NAME_ABBR || ''],
@@ -87,7 +89,7 @@ async function getUpcomingDividendEvents(forwardDays = 90) {
     const bonusRmb = row.PRETAX_BONUS_RMB || 0
     const transfer = row.TRANSFER_RATIO || 0
     const bonusRatio = row.BONUS_RATIO || 0
-    let desc = `每10股派${(bonusRmb * 10).toFixed(1)}元`
+    let desc = `每10股派${bonusRmb.toFixed(1)}元`
     if (transfer > 0) desc += `，转增${transfer}股`
     if (bonusRatio > 0) desc += `，送股${bonusRatio}股`
 
@@ -100,7 +102,7 @@ async function getUpcomingDividendEvents(forwardDays = 90) {
       riskLevel: 'info',
       scope: 'stock',
       targets: [row.SECURITY_NAME_ABBR || ''],
-      impact: bonusRmb > 5 ? '高分红，除权后关注填权行情' : '常规分红派息，影响有限',
+      impact: bonusRmb > 50 ? '高分红，除权后关注填权行情' : '常规分红派息，影响有限',
     }
   })
 }
@@ -266,4 +268,18 @@ async function getAllRiskEvents() {
   return all
 }
 
-module.exports = { getAllRiskEvents, getUpcomingLockupEvents, getUpcomingDividendEvents, generateMacroEvents }
+/** 根据股票名称获取相关风险事件 */
+async function getRiskEventsByStock(stockName) {
+  if (!stockName) return []
+  // 清理名称中的XD/XR等前缀
+  const cleanName = stockName.replace(/^(XD|XR|DR|N|C)/, '')
+  const all = await getAllRiskEvents()
+  return all.filter(e => {
+    const nameMatch = (name) => cleanName.includes(name) || name.includes(cleanName)
+    if (e.targets && e.targets.some(t => nameMatch(t))) return true
+    if (e.title && nameMatch(e.title.replace(/除权除息|限售股解禁/g, '').trim())) return true
+    return false
+  }).slice(0, 10)
+}
+
+module.exports = { getAllRiskEvents, getUpcomingLockupEvents, getUpcomingDividendEvents, generateMacroEvents, getRiskEventsByStock }

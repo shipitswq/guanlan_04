@@ -17,6 +17,12 @@ export default function Header() {
           <span className="text-lg font-semibold tracking-wide">观澜</span>
           <span className="text-xs text-slate-400">观水知澜，见微知著</span>
         </div>
+        <div className="relative w-10 h-10 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-2 border-blue-400 animate-ping opacity-40" style={{ animationDuration: '2s' }} />
+          <div className="absolute inset-1 rounded-full border-2 border-cyan-400 animate-ping opacity-30" style={{ animationDuration: '2s', animationDelay: '0.3s' }} />
+          <div className="absolute inset-2 rounded-full border-2 border-sky-400 animate-ping opacity-20" style={{ animationDuration: '2s', animationDelay: '0.6s' }} />
+          <div className="absolute inset-3 rounded-full bg-gradient-to-b from-blue-400 to-cyan-300 shadow-lg shadow-blue-300/50" />
+        </div>
       </div>
       {/* 导航标签栏 */}
       <nav className="flex items-center gap-1 px-6 border-t border-surface-border">

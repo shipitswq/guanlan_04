@@ -54,9 +54,34 @@ function readInstitutionalHoldings() {
   }
 }
 
+/** 读取个股主力净流入缓存 */
+function readStockInflows() {
+  try {
+    const file = path.join(DATA_DIR, 'stock-inflows.json')
+    if (!fs.existsSync(file)) return null
+    return JSON.parse(fs.readFileSync(file, 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
+/** 写入个股主力净流入缓存 */
+function writeStockInflows(data) {
+  try {
+    const file = path.join(DATA_DIR, 'stock-inflows.json')
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
+    return true
+  } catch (e) {
+    console.error('[缓存] 写入个股资金流失败:', e.message)
+    return false
+  }
+}
+
 module.exports = {
   readMarketBreadth,
   readSectors,
   writeSectors,
   readInstitutionalHoldings,
+  readStockInflows,
+  writeStockInflows,
 }

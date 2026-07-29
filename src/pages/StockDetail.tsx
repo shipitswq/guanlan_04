@@ -77,7 +77,7 @@ export default function StockDetail() {
               )}
             </div>
             <div className="text-right">
-              <div className="text-xs text-slate-400">主力努力指数</div>
+              <div className="text-xs text-slate-400">主力加仓指数</div>
               {stock.floatMarketCap > 0 && stock.netInflow !== 0 ? (
                 <div className={`text-sm font-mono font-medium ${stock.netInflow > 0 ? 'text-up' : 'text-down'}`}>
                   {(stock.netInflow / stock.floatMarketCap * 100).toFixed(3)}%
@@ -201,6 +201,32 @@ export default function StockDetail() {
       {stock.analysis.map((a) => (
         <DimensionSection key={a.dimension} analysis={a} />
       ))}
+
+      {/* 相关风险事件 */}
+      {stock.riskEvents?.length > 0 && (
+        <div className="card p-5">
+          <h3 className="text-sm font-medium text-slate-600 mb-3">⚠ 相关风险事件</h3>
+          <div className="space-y-2">
+            {stock.riskEvents.map((evt, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-surface-border">
+                <div className="shrink-0 text-center w-12">
+                  <div className="text-xs text-slate-400">{evt.date.slice(5)}</div>
+                </div>
+                <div className="shrink-0">
+                  <span className={`badge ${evt.riskLevel === 'high' ? 'bg-red-50 text-red-600' : evt.riskLevel === 'medium' ? 'bg-yellow-50 text-yellow-600' : 'bg-slate-50 text-slate-500'}`}>
+                    {evt.riskLevel === 'high' ? '高' : evt.riskLevel === 'medium' ? '中' : '低'}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-slate-700">{evt.title}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">{evt.description}</div>
+                  <div className="text-xs text-slate-500 mt-1">{evt.impact}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
