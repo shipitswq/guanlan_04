@@ -49,6 +49,9 @@ function NorthFlowChart() {
       <h3 className="text-sm font-medium text-slate-600 mb-2">北向资金近30日</h3>
       <div className="text-xs text-slate-400 mb-3">红柱净买入 / 蓝柱净卖出 / 黄线累积趋势</div>
       <div ref={containerRef} style={{ width: '100%', height: 340 }} />
+      <div className="mt-3 text-xs text-slate-400 leading-relaxed">
+        数据来源：同花顺 hsgtApi，含沪股通（hgt）+ 深股通（sgt）双通道。北向合计 = 沪股通当日累计净买入 + 深股通时段差值。盘中自动更新，收盘后保留最终值。
+      </div>
     </div>
   )
 }
