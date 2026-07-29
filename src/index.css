@@ -64,3 +64,8 @@
   .bg-up { background-color: #fef2f2; }
   .bg-down { background-color: #f0fdf4; }
 }
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}

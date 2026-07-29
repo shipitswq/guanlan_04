@@ -199,4 +199,6 @@ export const api = {
   getSectorInflowSummary: (level?: number) => request<SectorInflowSummary[]>(`/sectors/inflow-summary${level ? `?level=${level}` : ''}`),
   getSectorTree: () => request<any[]>('/sectors/tree'),
   captureSectors: () => request<{ok: boolean, count: number, ts: string}>('/sectors/capture', { method: 'POST' }),
+  getNorthFlowHistory: () => request<{date: string; netFlow: number}[]>('/north-flow-history'),
+  getTurnoverHistory: (days = 30) => request<{date: string; total: number}[]>(`/turnover-history?days=${days}`),
 }

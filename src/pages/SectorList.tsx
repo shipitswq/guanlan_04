@@ -305,6 +305,9 @@ export default function SectorList() {
               { label: '当日', hours: 8 },
               { label: '近三日', hours: 24 },
               { label: '近一周', hours: 56 },
+              { label: '近一月', hours: 240 },
+              { label: '近三月', hours: 720 },
+              { label: '近一年', hours: 2000 },
             ].map(opt => (
               <button
                 key={opt.hours}

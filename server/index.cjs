@@ -242,7 +242,7 @@ app.get('/api/sectors', async (req, res) => {
 // ---- 板块资金热力图数据（支持 shw 模式按申万一级聚合） ----
 app.get('/api/sectors/heatmap', async (req, res) => {
   try {
-    const hours = Math.min(200, Math.max(2, parseInt(req.query.hours) || 8))
+    const hours = Math.min(5000, Math.max(2, parseInt(req.query.hours) || 8))
     const level = req.query.level ? parseInt(req.query.level) : undefined
 
     let data = sectorDb.getHourlySnapshot({ hours, level })
@@ -943,6 +943,26 @@ app.post('/api/refresh-holdings', async (req, res) => {
     } catch(e2) {
       res.status(500).json({ ok: false, error: err.message })
     }
+  }
+})
+
+// ---- 两市成交额历史 ----
+app.get('/api/turnover-history', (req, res) => {
+  try {
+    const dataDir = path.resolve(__dirname, 'data')
+    const file = path.join(dataDir, 'turnover-history.json')
+    let records = []
+    if (fs.existsSync(file)) {
+      try { records = JSON.parse(fs.readFileSync(file, 'utf-8')) } catch (e) {}
+    }
+    // 没有任何记录时返回一条空记录让图表能渲染
+    if (records.length === 0) {
+      records = [{ date: new Date().toISOString().slice(0, 10), total: 0 }]
+    }
+    res.json(records.slice(-30))
+  } catch (err) {
+    console.error('turnover history error:', err.message)
+    res.status(500).json({ error: err.message })
   }
 })
 
