@@ -211,4 +211,34 @@ export const api = {
   captureSectors: () => request<{ok: boolean, count: number, ts: string}>('/sectors/capture', { method: 'POST' }),
   getNorthFlowHistory: () => request<{date: string; netFlow: number}[]>('/north-flow-history'),
   getTurnoverHistory: (days = 30) => request<{date: string; total: number}[]>(`/turnover-history?days=${days}`),
+  getMarketFundFlow: () => request<{
+    institutional: number; mainForce: number; largeRetail: number;
+    retail: number; total: number; samples: number; note: string
+  }>('/market/fund-flow'),
+  getStabilizationFund: () => request<{
+    timestamp: string; verdict: string; confidence: number; isActive: boolean;
+    details: {
+      etf: { signals: Array<{code:string;name:string;turnover:number;volumeRatio:number;changePct:number;signal:string;severity:string}>; activeCount: number; summary: string };
+      bankDivergence: { bankInflow: number; totalMainInflow: number; signal: string; summary: string };
+      superOrder: { buySectors: number; sellSectors: number; signal: string; summary: string };
+    }
+  }>('/market/stabilization-fund'),
+  captureFundFlowSnapshot: () => request<{ok: boolean; timestamp: string}>('/market/fund-flow/snapshot', { method: 'POST' }),
+  getFundFlowHistory: () => request<{
+    date: string; snapshots: Array<{timestamp: string; institutional: number; mainForce: number; largeRetail: number; retail: number}>
+  }>('/market/fund-flow/history'),
+  getNews: () => request<Array<{id: string; title: string; url: string; ctime: string}>>('/news'),
+  getLiquidity: () => request<{
+    totalTurnover: number; avgVolumeRatio: number | null;
+    marginBalance: number | null; marginBuy: number | null;
+    limitUp: number; limitDown: number; note: string
+  }>('/liquidity'),
+  getMacroLiquidity: () => request<{
+    usdCny: number | null; dxy: number | null; cn10y: number | null; us10y: number | null; spread: number | null
+  }>('/macro-liquidity'),
+  getM1M2: () => request<{
+    updatedAt: string;
+    latest: { date: string; m1: number; m2: number; m1YoY: number | null; m2YoY: number | null; spread: number | null };
+    series: Array<{ date: string; m1Growth: number | null; m2Growth: number | null; spread: number | null }>
+  }>('/m1m2'),
 }

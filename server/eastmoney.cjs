@@ -137,6 +137,31 @@ async function getMainInflowBatch(codes) {
   return result
 }
 
+/** 获取个股资金流（日级，最近120日），含主力/散户/中单/大单/超大单 */
+async function getStockFundFlow(code) {
+  const marketCode = code.startsWith('6') ? 1 : 0
+  const url = `${EM_BASE}/api/qt/stock/fflow/daykline/get`
+  const params = {
+    secid: `${marketCode}.${code}`,
+    fields1: 'f1,f2,f3,f7',
+    fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65',
+    lmt: '1',
+  }
+  const data = await fetchJSON(`${url}?${new URLSearchParams(params)}`)
+  const klines = data?.data?.klines || []
+  return klines.map(line => {
+    const parts = line.split(',')
+    return {
+      date: parts[0],
+      main_net: parseFloat(parts[1]) || 0,
+      small_net: parseFloat(parts[2]) || 0,
+      mid_net: parseFloat(parts[3]) || 0,
+      large_net: parseFloat(parts[4]) || 0,
+      super_net: parseFloat(parts[5]) || 0,
+    }
+  })
+}
+
 // ============ K线数据 ============
 
 /**
@@ -583,6 +608,7 @@ module.exports = {
   getIndustryHierarchy,
   getSectorStocks,
   getStockCapitalFlow,
+  getStockFundFlow,
   getFinancials,
   getValuationHistory,
   getMarketBreadth,

@@ -99,10 +99,23 @@ function MiniBarChart({ data, valueKey, color, unit = '亿', totalSlots }: {
 
 export default function Dashboard() {
   const { data: market, loading: marketLoading, error: marketError } = useMarket()
+  const fundFlowChartRef = useRef<HTMLDivElement>(null)
+  const fundFlowChartInstance = useRef<echarts.ECharts | null>(null)
   const [allUpcoming, setAllUpcoming] = useState<RiskEvent[]>([])
-  const [riskFilter, setRiskFilter] = useState<RiskLevel | 'all'>('all')
   const [turnoverHistory, setTurnoverHistory] = useState<{ date: string; total: number }[]>([])
   const [northHistory, setNorthHistory] = useState<{ date: string; netFlow: number }[]>([])
+  const [fundFlow, setFundFlow] = useState<{
+    institutional: number; mainForce: number; largeRetail: number;
+    retail: number; samples: number
+  } | null>(null)
+  const [fundFlowHistory, setFundFlowHistory] = useState<{
+    date: string; snapshots: Array<{timestamp: string; institutional: number; mainForce: number; largeRetail: number; retail: number}>
+  } | null>(null)
+  const [stabilFund, setStabilFund] = useState<any>(null)
+  const [news, setNews] = useState<Array<{id: string; title: string; url: string; ctime: string}>>([])
+  const [liquidity, setLiquidity] = useState<any>(null)
+  const [macroLiq, setMacroLiq] = useState<any>(null)
+  const [m1m2, setM1m2] = useState<any>(null)
 
   useEffect(() => {
     fetchAllEvents().then(all => {
@@ -114,10 +127,52 @@ export default function Dashboard() {
 
   useEffect(() => { api.getTurnoverHistory(30).then(setTurnoverHistory).catch(() => {}) }, [])
   useEffect(() => { api.getNorthFlowHistory().then(setNorthHistory).catch(() => {}) }, [])
+  useEffect(() => { api.getMarketFundFlow().then(setFundFlow).catch(() => {}) }, [])
+  useEffect(() => { api.getFundFlowHistory().then(setFundFlowHistory).catch(() => {}) }, [])
+  useEffect(() => { api.getStabilizationFund().then(setStabilFund).catch(() => {}) }, [])
+  useEffect(() => { api.getNews().then(setNews).catch(() => {}) }, [])
+  useEffect(() => { api.getLiquidity().then(setLiquidity).catch(() => {}) }, [])
+  useEffect(() => { api.getMacroLiquidity().then(setMacroLiq).catch(() => {}) }, [])
+  useEffect(() => { api.getM1M2().then(setM1m2).catch(() => {}) }, [])
 
-  const filteredEvents = riskFilter === 'all'
-    ? allUpcoming : allUpcoming.filter(e => e.riskLevel === riskFilter)
-  const displayEvents = filteredEvents.slice(0, 5)
+  // 资金流向折线图
+  useEffect(() => {
+    if (!fundFlowChartRef.current || !fundFlowHistory?.snapshots?.length) return
+    if (fundFlowChartInstance.current) { fundFlowChartInstance.current.dispose(); fundFlowChartInstance.current = null }
+    fundFlowChartInstance.current = echarts.init(fundFlowChartRef.current)
+    const snapshots = fundFlowHistory.snapshots
+    const labels = snapshots.map(s => s.timestamp)
+    const PALETTE = ['#8b5cf6', '#ef4444', '#f59e0b', '#3b82f6']
+    fundFlowChartInstance.current.setOption({
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any[]) => {
+          if (!params?.length) return ''
+          let h = `<div class="text-xs font-medium mb-1">${params[0].axisValue}</div>`
+          for (const p of params) {
+            const v = p.data
+            const c = v >= 0 ? '#ef4444' : '#22c55e'
+            h += `<div style="display:flex;justify-content:space-between;gap:16px;"><span>${p.marker} ${p.seriesName}</span><span style="color:${c};font-weight:600">${v >= 0 ? '+' : ''}${v.toFixed(1)}亿</span></div>`
+          }
+          return h
+        },
+      },
+      legend: { show: false },
+      grid: { left: 50, right: 16, top: 8, bottom: 28 },
+      xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10, rotate: 30 } },
+      yAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: '{value}亿' } },
+      series: [
+        { name: '机构', type: 'line', data: snapshots.map(s => s.institutional), smooth: true, symbol: 'none', lineStyle: { width: 2, color: PALETTE[0] }, itemStyle: { color: PALETTE[0] } },
+        { name: '主力', type: 'line', data: snapshots.map(s => s.mainForce), smooth: true, symbol: 'none', lineStyle: { width: 2, color: PALETTE[1] }, itemStyle: { color: PALETTE[1] } },
+        { name: '大户', type: 'line', data: snapshots.map(s => s.largeRetail), smooth: true, symbol: 'none', lineStyle: { width: 2, color: PALETTE[2] }, itemStyle: { color: PALETTE[2] } },
+        { name: '散户', type: 'line', data: snapshots.map(s => s.retail), smooth: true, symbol: 'none', lineStyle: { width: 2, color: PALETTE[3] }, itemStyle: { color: PALETTE[3] } },
+      ],
+      animationDuration: 500,
+    }, true)
+    const ro = new ResizeObserver(() => fundFlowChartInstance.current?.resize())
+    ro.observe(fundFlowChartRef.current)
+    return () => { ro.disconnect(); if (fundFlowChartInstance.current) { fundFlowChartInstance.current.dispose(); fundFlowChartInstance.current = null } }
+  }, [fundFlowHistory])
 
   if (marketLoading) return <FullLoading text="正在加载实时行情数据..." />
   if (marketError) return <ErrorState message={marketError} />
@@ -152,7 +207,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 情绪 + 风险 */}
+      {/* 顶部三列：情绪温度计 + 资金流向 + 平准资金 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* 市场情绪温度计 */}
         <div className="card p-5">
@@ -183,54 +238,80 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 风险预警 */}
-        <div className="card p-5 lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-slate-600">⚠ 即将到来的风险事件</h3>
-            <div className="flex items-center gap-1.5">
-              {(['all', 'high', 'medium', 'low', 'info'] as const).map((key) => (
-                <button key={key} onClick={() => setRiskFilter(key)}
-                  className={`text-xs px-2 py-1 rounded transition-colors ${riskFilter === key ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}>
-                  {key === 'all' ? '全部' : RISK_LEVEL_MAP[key].label}
-                </button>
-              ))}
-              <div className="w-px h-4 bg-surface-border mx-1" />
-              <Link to="/calendar" className="text-xs text-primary-600 hover:text-primary-700 shrink-0">查看全部 →</Link>
+        {/* 当日资金流向 */}
+        <div className="card p-5 flex flex-col">
+          <div className="flex items-center justify-between mb-2 shrink-0">
+            <h3 className="text-sm font-medium text-slate-600">当日资金流向</h3>
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{backgroundColor:'#8b5cf6'}} />机构</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{backgroundColor:'#ef4444'}} />主力</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{backgroundColor:'#f59e0b'}} />大户</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{backgroundColor:'#3b82f6'}} />散户</span>
             </div>
           </div>
-          <div className="space-y-2">
-            {displayEvents.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">暂无风险事件数据</p>
-            ) : displayEvents.map((evt) => {
-              const days = daysFromToday(evt.date)
-              const levelConfig = RISK_LEVEL_MAP[evt.riskLevel]
-              const typeConfig = RISK_TYPE_MAP[evt.type]
-              const urgent = days <= 3
-              return (
-                <Link key={evt.id} to="/calendar"
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors hover:bg-slate-50 ${urgent ? 'border-risk-high/30 bg-risk-high/5' : 'border-surface-border'}`}>
-                  <div className="shrink-0 w-12 text-center">
-                    <div className="text-xs text-slate-400">{fmtDateShort(evt.date)}</div>
-                    <div className="text-[10px] text-slate-400">{weekDay(evt.date)}</div>
-                  </div>
-                  <div className="shrink-0"><span className="badge" style={{ color: levelConfig.color, backgroundColor: levelConfig.bgColor }}>{levelConfig.label}</span></div>
-                  <div className="shrink-0 text-lg">{typeConfig.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-700 truncate">{evt.title}</div>
-                    <div className="text-xs text-slate-400 truncate">{evt.impact}</div>
-                  </div>
-                  <div className={`shrink-0 text-xs font-mono font-medium ${urgent ? 'text-risk-high' : 'text-slate-500'}`}>
-                    {days === 0 ? '今天' : days === 1 ? '明天' : `${days}天后`}
-                  </div>
-                </Link>
-              )
-            })}
+          {fundFlowHistory && fundFlowHistory.snapshots.length > 0 ? (
+            <div ref={fundFlowChartRef} className="flex-1 w-full" style={{ minHeight: 180 }} />
+          ) : (
+            <div className="flex items-center justify-center flex-1 text-xs text-slate-400">暂无数据，盘中自动采集</div>
+          )}
+        </div>
+
+        {/* 平准资金监控 */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-600">🛡 平准资金监控</h3>
+            {stabilFund && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: stabilFund.isActive ? '#dc2626' : '#22c55e' }} />
+                <span className={`text-xs font-mono font-semibold ${stabilFund.isActive ? 'text-risk-high' : 'text-emerald-600'}`}>
+                  {stabilFund.isActive ? '信号中' : '无信号'}
+                </span>
+              </div>
+            )}
           </div>
+          {stabilFund ? (
+            <>
+              <div className="flex items-center gap-3 mb-3 p-2.5 rounded-lg" style={{ backgroundColor: stabilFund.isActive ? '#fef2f2' : '#f0fdf4' }}>
+                <div className={`text-lg font-bold ${stabilFund.isActive ? 'text-risk-high' : 'text-emerald-600'}`}>
+                  {stabilFund.isActive ? '⚠' : '✓'}
+                </div>
+                <div>
+                  <div className="text-xs font-medium">{stabilFund.verdict}</div>
+                  {stabilFund.confidence > 0 && (
+                    <div className="text-[10px] text-slate-500 mt-0.5">置信度: {'●'.repeat(Math.ceil(stabilFund.confidence / 2))}{'○'.repeat(5 - Math.ceil(stabilFund.confidence / 2))}</div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs p-2 rounded bg-slate-50">
+                  <div className="text-slate-500 mb-0.5">📊 ETF异常放量</div>
+                  <div className="font-semibold text-slate-700">{stabilFund.details.etf.summary}</div>
+                  {stabilFund.details.etf.signals.filter(s => s.severity !== 'none').slice(0, 2).map(s => (
+                    <div key={s.code} className="text-slate-400 mt-0.5">{s.name} 量比{s.volumeRatio.toFixed(1)}x</div>
+                  ))}
+                </div>
+                <div className="text-xs p-2 rounded bg-slate-50">
+                  <div className="text-slate-500 mb-0.5">🏦 银行板块</div>
+                  <div className="font-semibold" style={{ color: stabilFund.details.bankDivergence.bankInflow >= 0 ? '#dc2626' : '#22c55e' }}>
+                    {stabilFund.details.bankDivergence.bankInflow >= 0 ? '+' : ''}{stabilFund.details.bankDivergence.bankInflow.toFixed(1)}亿
+                  </div>
+                  <div className="text-slate-400 mt-0.5">{stabilFund.details.bankDivergence.summary}</div>
+                </div>
+                <div className="text-xs p-2 rounded bg-slate-50">
+                  <div className="text-slate-500 mb-0.5">💰 超大单</div>
+                  <div className="font-semibold text-slate-700">{stabilFund.details.superOrder.summary}</div>
+                  <div className="text-slate-400 mt-0.5">买入{stabilFund.details.superOrder.buySectors}个板块 / 卖出{stabilFund.details.superOrder.sellSectors}个板块</div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center flex-1 text-xs text-slate-400">加载中...</div>
+          )}
         </div>
       </div>
 
-      {/* 成交额 + 北向资金 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* 成交额 + 北向资金 + 宏观流动性 + M1/M2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 两市成交额 */}
         <div className="card p-4">
           <div className="flex items-end justify-between mb-2">
@@ -274,7 +355,141 @@ export default function Dashboard() {
             totalSlots={30}
           />
         </div>
+
+        {/* 宏观流动性监测 */}
+        <div className="card p-4">
+          <div className="text-xs text-slate-500 mb-2">宏观流动性</div>
+          {macroLiq ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">USD/CNY</span>
+                <span className={`font-mono font-semibold ${macroLiq.usdCny ? (macroLiq.usdCny > 7 ? 'text-up' : 'text-down') : 'text-slate-300'}`}>
+                  {macroLiq.usdCny?.toFixed(4) || '--'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">美元指数</span>
+                <span className="font-mono font-semibold text-slate-700">
+                  {macroLiq.dxy?.toFixed(2) || '--'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">中国10Y国债</span>
+                <span className="font-mono font-semibold text-slate-700">
+                  {macroLiq.cn10y ? `${macroLiq.cn10y.toFixed(2)}%` : '--'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">美国10Y国债</span>
+                <span className="font-mono font-semibold text-slate-700">
+                  {macroLiq.us10y ? `${macroLiq.us10y.toFixed(2)}%` : '--'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">中美利差</span>
+                <span className={`font-mono font-semibold ${macroLiq.spread && macroLiq.spread > 0 ? 'text-up' : 'text-down'}`}>
+                  {macroLiq.spread ? `${macroLiq.spread.toFixed(2)}%` : '--'}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-400 pt-1 border-t border-surface-border">
+                USD/CNY来自新浪财经，美元指数由交叉汇率估算
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-24 text-xs text-slate-400">暂无数据</div>
+          )}
+        </div>
+
+        {/* M1/M2 剪刀差 */}
+        <div className="card p-4">
+          <div className="text-xs text-slate-500 mb-2">M1/M2 剪刀差</div>
+          {m1m2 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">M1（狭义货币）</span>
+                <span className="font-mono font-semibold text-slate-700">{m1m2.latest.m1}万亿</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">M2（广义货币）</span>
+                <span className="font-mono font-semibold text-slate-700">{m1m2.latest.m2}万亿</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">M1同比</span>
+                <span className={`font-mono font-semibold ${(m1m2.latest.m1YoY || 0) >= 0 ? 'text-up' : 'text-down'}`}>
+                  {m1m2.latest.m1YoY != null ? `${m1m2.latest.m1YoY >= 0 ? '+' : ''}${m1m2.latest.m1YoY.toFixed(1)}%` : '--'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">M2同比</span>
+                <span className={`font-mono font-semibold ${(m1m2.latest.m2YoY || 0) >= 0 ? 'text-up' : 'text-down'}`}>
+                  {m1m2.latest.m2YoY != null ? `${m1m2.latest.m2YoY >= 0 ? '+' : ''}${m1m2.latest.m2YoY.toFixed(1)}%` : '--'}
+                </span>
+              </div>
+              <div className="pt-1.5 border-t border-surface-border">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-slate-600">剪刀差（M1-M2）</span>
+                  <span className={`font-mono font-semibold text-sm ${(m1m2.latest.spread || 0) >= 0 ? 'text-up' : 'text-down'}`}>
+                    {m1m2.latest.spread != null ? `${m1m2.latest.spread >= 0 ? '+' : ''}${m1m2.latest.spread.toFixed(1)}%` : '--'}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">
+                  {m1m2.latest.spread != null
+                    ? (m1m2.latest.spread > 0 ? '剪刀差收窄，资金活化提升' : '剪刀差走阔，资金趋于定期')
+                    : ''}
+                </div>
+              </div>
+              <div className="text-[10px] text-slate-400 pt-1 border-t border-surface-border">
+                数据更新至 {m1m2.latest.date}（人行口径）
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-24 text-xs text-slate-400">暂无数据</div>
+          )}
+        </div>
       </div>
+
+      {/* 底部滚动风险事件（两日内） */}
+      {(() => {
+        const urgent = allUpcoming.filter(e => daysFromToday(e.date) <= 2)
+        if (urgent.length === 0) return null
+        const items = [...urgent, ...urgent] // 双倍实现无缝滚动
+        return (
+          <div className="overflow-hidden bg-white rounded-xl border border-surface-border py-2">
+            <div className="flex gap-6 whitespace-nowrap animate-marquee" style={{ animation: 'marquee 30s linear infinite' }}>
+              {items.map((evt, i) => {
+                const levelConfig = RISK_LEVEL_MAP[evt.riskLevel]
+                const typeConfig = RISK_TYPE_MAP[evt.type]
+                const days = daysFromToday(evt.date)
+                return (
+                  <Link key={`${evt.id}_${i}`} to="/calendar" className="flex items-center gap-2 shrink-0 px-2">
+                    <span className="text-xs" style={{ color: levelConfig.color }}>{typeConfig.icon}</span>
+                    <span className="text-xs font-medium">{evt.title}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: levelConfig.color, backgroundColor: levelConfig.bgColor }}>
+                      {days === 0 ? '今天' : days === 1 ? '明天' : '后天'}
+                    </span>
+                    <span className="text-xs text-slate-400">{evt.impact}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* 底部滚动新闻 */}
+      {news.length > 0 && (
+        <div className="overflow-hidden bg-white rounded-xl border border-surface-border py-2">
+          <div className="flex gap-6 whitespace-nowrap animate-marquee" style={{ animation: 'marquee 45s linear infinite' }}>
+            <span className="flex items-center gap-1 shrink-0 px-2 text-xs font-medium text-primary-600">📰 快讯</span>
+            {[...news, ...news].map((item, i) => (
+              <a key={`${item.id}_${i}`} href={item.url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 shrink-0 px-2 text-xs text-slate-600 hover:text-primary-600">
+                {item.title}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
