@@ -15,13 +15,17 @@ function NorthFlowChart() {
 
   useEffect(() => {
     if (!data || !containerRef.current) return
-    if (!chartRef.current) {
-      chartRef.current = echarts.init(containerRef.current)
-    }
-    const dates = data.map(d => d.date.slice(5))
-    const flows = data.map(d => d.netFlow)
+    const TOTAL_SLOTS = 30
+    // 左侧补 null 占位，固定 30 天
+    const padded = data.length < TOTAL_SLOTS
+      ? [...Array(TOTAL_SLOTS - data.length).fill(null), ...data]
+      : data.slice(-TOTAL_SLOTS)
+
+    const dates = padded.map(d => d ? d.date.slice(5) : '')
+    const flows = padded.map(d => d?.netFlow ?? null)
     let cumSum = 0
-    const cumFlows = data.map(d => { cumSum += d.netFlow; return +cumSum.toFixed(1) })
+    const cumFlows = padded.map(d => { if (d) cumSum += d.netFlow; return +cumSum.toFixed(1) })
+    if (!chartRef.current) chartRef.current = echarts.init(containerRef.current)
     chartRef.current.setOption({
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       legend: { data: ['净买入', '累积净流入'], top: 0, textStyle: { fontSize: 11 } },
@@ -32,8 +36,8 @@ function NorthFlowChart() {
         { type: 'value', name: '亿', nameTextStyle: { fontSize: 10 }, axisLabel: { fontSize: 10 } },
       ],
       series: [
-        { name: '净买入', type: 'bar', data: flows, itemStyle: { color: (p: { value: number }) => p.value >= 0 ? '#dc2626' : '#3b82f6' } },
-        { name: '累积净流入', type: 'line', yAxisIndex: 1, data: cumFlows, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, symbol: 'none', smooth: true },
+        { name: '净买入', type: 'bar', data: flows.map(v => v ?? null), itemStyle: { color: (p: { value: number }) => p.value >= 0 ? '#dc2626' : '#3b82f6' }, barWidth: '60%' },
+        { name: '累积净流入', type: 'line', yAxisIndex: 1, data: cumFlows, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, symbol: 'none', smooth: true, connectNulls: true },
       ],
     }, true)
   }, [data])
